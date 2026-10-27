@@ -6,21 +6,173 @@ function setStatus(el, message, kind='info') {
 }
 const prizeNames={tshirt:'T-shirt Halloween',mug:'Mug Halloween',mousepad:'Tapis de souris Halloween'};
 function initRedeem(){
- const codeForm=document.getElementById('code-form'); if(!codeForm)return;
- const claim=document.getElementById('claim-section'), form=document.getElementById('claim-form');
- const status=document.getElementById('code-status'), result=document.getElementById('claim-status');
- const prizeSelect=document.getElementById('prize-select'), chosen=document.getElementById('chosen-prize');
- const size=document.getElementById('size-field'), sizeSelect=document.getElementById('size');
- const color=document.getElementById('color-field'), colorSelect=document.getElementById('color');
- const preview=document.getElementById('variant-preview');
- const variants={tshirt:{noir:'tshirt-noir.webp',charbon:'tshirt-charbon.webp',marine:'tshirt-marine.webp'},mousepad:{nuit:'tapis-nuit.webp',aurore:'tapis-aurore.webp'},mug:{'':'mug.webp'}};
- const labels={noir:'Noir',charbon:'Charbon',marine:'Bleu marine',nuit:'Nuit',aurore:'Aurore'};
- function update(){const p=prizeSelect.value; chosen.textContent=prizeNames[p]||'Cadeau'; size.classList.toggle('hidden',p!=='tshirt');sizeSelect.required=p==='tshirt';color.classList.toggle('hidden',p==='mug');colorSelect.required=p!=='mug';colorSelect.replaceChildren(new Option('Choisir un coloris',''));for(const c of Object.keys(variants[p]||variants.mug)){if(c)colorSelect.add(new Option(labels[c],c));} updatePreview();}
- function updatePreview(){const p=prizeSelect.value;const v=variants[p]||variants.mug;preview.src='./assets/'+(v[colorSelect.value]||Object.values(v)[0]);preview.alt='Aperçu du lot';}
- prizeSelect.addEventListener('change',update);colorSelect.addEventListener('change',updatePreview);
- codeForm.addEventListener('submit',e=>{e.preventDefault();const code=document.getElementById('winner-code').value.trim();if(code.length<12){setStatus(status,'Entre le code complet reçu en message privé.','error');return;} document.getElementById('claim-code').value=code;claim.classList.remove('hidden');update();setStatus(status,'Référence enregistrée. Ton lot sera vérifié manuellement par l’organisateur après réception du formulaire.','info');claim.scrollIntoView({behavior:'smooth',block:'start'});});
- form.addEventListener('submit',async e=>{e.preventDefault();const endpoint=window.RYLLAKA_FORMSPREE_ENDPOINT||'';if(!/^https:\/\/formspree\.io\/f\/[a-zA-Z0-9]+$/.test(endpoint)){setStatus(result,'Le formulaire n’est pas encore activé par l’organisateur (Formspree).','error');return;}const button=form.querySelector('button[type=submit]');button.disabled=true;const data=new FormData(form);data.set('lot',prizeNames[prizeSelect.value]);data.set('reference_code',document.getElementById('claim-code').value);data.set('_subject','Ryllaka Halloween — nouvelle réclamation à vérifier');if(prizeSelect.value!=='tshirt')data.delete('size');if(prizeSelect.value==='mug')data.delete('color');try{const res=await fetch(endpoint,{method:'POST',body:data,headers:{Accept:'application/json'}});if(!res.ok)throw Error('Le service de formulaire a refusé l’envoi.');form.classList.add('hidden');codeForm.classList.add('hidden');setStatus(result,'Réclamation envoyée ! L’organisateur vérifiera ton code avant de préparer la commande Printful.','success');}catch(err){setStatus(result,'Envoi impossible : '+err.message+' Réessaie plus tard.','error');}finally{button.disabled=false;}});
+  const codeForm = document.getElementById('code-form');
+  if (!codeForm) return;
+
+  const claimSection = document.getElementById('claim-section');
+  const form = document.getElementById('claim-form');
+  const codeInput = document.getElementById('winner-code');
+  const codeHidden = document.getElementById('claim-code');
+  const prizeHidden = document.getElementById('claim-prize');
+  const codeStatus = document.getElementById('code-status');
+  const claimStatus = document.getElementById('claim-status');
+  const prizeSelect = document.getElementById('prize-select');
+  const prizeSelectArea = document.getElementById('prize-choice-field');
+  const chosenPrize = document.getElementById('chosen-prize');
+  const previewBlock = document.getElementById('preview-block');
+  const preview = document.getElementById('variant-preview');
+  const optionsBlock = document.getElementById('product-options');
+  const sizeField = document.getElementById('size-field');
+  const sizeSelect = document.getElementById('size');
+  const colorField = document.getElementById('color-field');
+  const colorSelect = document.getElementById('color');
+  const verifyButton = codeForm.querySelector('button[type="submit"]');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const variants = {
+    tshirt: {noir:'tshirt-noir.webp', charbon:'tshirt-charbon.webp', marine:'tshirt-marine.webp'},
+    mousepad: {nuit:'tapis-nuit.webp', aurore:'tapis-aurore.webp'},
+    mug: {'':'mug.webp'}
+  };
+  const labels = {noir:'Noir', charbon:'Charbon', marine:'Bleu marine', nuit:'Nuit', aurore:'Aurore'};
+  let acceptedCode = null;
+  let acceptedKind = null;
+  let sending = false;
+
+  async function getCodeKind(code) {
+    if (!window.crypto?.subtle) {
+      throw new Error('Ouvre ce site via HTTPS sur GitHub Pages pour vérifier les codes.');
+    }
+    const bytes = new TextEncoder().encode(code);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2,'0')).join('');
+    const allowed = window.RYLLAKA_CODE_HASHES || {};
+    return Object.hasOwn(allowed, hash) ? allowed[hash] : null;
+  }
+
+  function updatePreview() {
+    const prize = prizeHidden.value;
+    if (!variants[prize]) return;
+    const imageMap = variants[prize];
+    const chosenColor = colorSelect.value;
+    preview.src = './assets/' + (imageMap[chosenColor] || Object.values(imageMap)[0]);
+    const colorName = labels[chosenColor];
+    preview.alt = 'Aperçu du ' + (prizeNames[prize] || 'cadeau') + (colorName ? ' — ' + colorName : '');
+  }
+
+  function setPrize(prize) {
+    const valid = Object.hasOwn(variants, prize);
+    prizeHidden.value = valid ? prize : '';
+    chosenPrize.textContent = valid ? prizeNames[prize] : 'Cadeau au choix';
+    previewBlock.classList.toggle('hidden', !valid);
+    optionsBlock.classList.toggle('hidden', !valid || prize === 'mug');
+    sizeField.classList.toggle('hidden', !valid || prize !== 'tshirt');
+    colorField.classList.toggle('hidden', !valid || prize === 'mug');
+
+    sizeSelect.disabled = !valid || prize !== 'tshirt';
+    sizeSelect.required = valid && prize === 'tshirt';
+    sizeSelect.value = '';
+    colorSelect.disabled = !valid || prize === 'mug';
+    colorSelect.required = valid && prize !== 'mug';
+    colorSelect.replaceChildren(new Option('Choisir une couleur', ''));
+    if (valid) {
+      for (const color of Object.keys(variants[prize])) {
+        if (color) colorSelect.add(new Option(labels[color], color));
+      }
+      updatePreview();
+    }
+  }
+
+  prizeSelect.addEventListener('change', () => {
+    if (acceptedKind !== 'universal') return;
+    setPrize(prizeSelect.value);
+  });
+  colorSelect.addEventListener('change', updatePreview);
+
+  codeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    // Un nouvel essai masque systématiquement l'ancien formulaire : pas d'accès avec un code erroné.
+    claimSection.classList.add('hidden');
+    form.classList.remove('hidden');
+    acceptedCode = null;
+    acceptedKind = null;
+    codeHidden.value = '';
+    prizeHidden.value = '';
+    setPrize('');
+    claimStatus.className = 'status';
+    claimStatus.textContent = '';
+
+    const code = codeInput.value.trim().toUpperCase();
+    if (!code) {
+      setStatus(codeStatus, 'Saisis le code reçu en message privé.', 'error');
+      return;
+    }
+    verifyButton.disabled = true;
+    try {
+      const kind = await getCodeKind(code);
+      if (!kind || (kind !== 'universal' && !Object.hasOwn(variants, kind))) {
+        setStatus(codeStatus, 'Code invalide. Vérifie les caractères du code reçu en MP.', 'error');
+        return;
+      }
+      acceptedCode = code;
+      acceptedKind = kind;
+      codeHidden.value = code;
+      const universal = kind === 'universal';
+      prizeSelectArea.classList.toggle('hidden', !universal);
+      prizeSelect.disabled = !universal;
+      prizeSelect.required = universal;
+      prizeSelect.value = universal ? '' : kind;
+      setPrize(universal ? '' : kind);
+      claimSection.classList.remove('hidden');
+      setStatus(codeStatus, universal
+        ? 'Code universel reconnu. Choisis maintenant l’un des trois cadeaux.'
+        : 'Code reconnu : ' + prizeNames[kind] + '. Ce cadeau ne peut pas être changé.', 'success');
+      claimSection.scrollIntoView({behavior:'smooth', block:'start'});
+    } catch (error) {
+      setStatus(codeStatus, error.message || 'Vérification impossible. Réessaie.', 'error');
+    } finally {
+      verifyButton.disabled = false;
+    }
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (sending) return;
+    const prize = prizeHidden.value;
+    if (!acceptedCode || !acceptedKind || !Object.hasOwn(variants, prize) ||
+        (acceptedKind !== 'universal' && prize !== acceptedKind) ||
+        (acceptedKind === 'universal' && prize !== prizeSelect.value)) {
+      setStatus(claimStatus, 'Le code ou le cadeau ne correspond pas. Vérifie ton code avant de continuer.', 'error');
+      return;
+    }
+    const endpoint = window.RYLLAKA_FORMSPREE_ENDPOINT || '';
+    if (!/^https:\/\/formspree\.io\/f\/[a-zA-Z0-9]+$/.test(endpoint)) {
+      setStatus(claimStatus, 'Le formulaire n’est pas encore activé par l’organisateur (Formspree).', 'error');
+      return;
+    }
+    sending = true;
+    submitButton.disabled = true;
+    const data = new FormData(form);
+    data.set('prize', prize);
+    data.set('lot', prizeNames[prize]);
+    data.set('reference_code', acceptedCode);
+    data.set('_subject', 'Ryllaka Halloween — nouvelle réclamation à vérifier');
+    if (prize !== 'tshirt') data.delete('size');
+    if (prize === 'mug') data.delete('color');
+    try {
+      const response = await fetch(endpoint, {method:'POST', body:data, headers:{Accept:'application/json'}});
+      if (!response.ok) throw new Error('Le service de formulaire a refusé l’envoi.');
+      form.classList.add('hidden');
+      codeForm.classList.add('hidden');
+      setStatus(claimStatus, 'Réclamation envoyée ! L’organisateur vérifiera ton code, ton lot et les éventuels doublons avant toute commande Printful.', 'success');
+    } catch (error) {
+      setStatus(claimStatus, 'Envoi impossible : ' + error.message + ' Réessaie plus tard.', 'error');
+    } finally {
+      sending = false;
+      submitButton.disabled = false;
+    }
+  });
 }
+
 function initWheel(){
   const canvas=document.getElementById('wheel-canvas'); if(!canvas)return;
   const textarea=document.getElementById('participants');

@@ -15,3 +15,14 @@
 .product-variants span{display:grid;gap:3px;justify-items:center;min-width:66px;}
 .product-variants img{display:block;width:68px;height:68px;object-fit:contain;border:1px solid #59416b;background:#21192d;border-radius:10px;}
 .product-variants small{font-size:11px;color:#d6bddb;}
+
+/* V4 : variantes visibles immédiatement sous l'aperçu du cadeau */
+#claim-form .chosen-preview{margin:14px 0 0;min-height:220px;padding:12px 15px;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0}
+#claim-form .chosen-preview img{max-width:340px;max-height:340px;aspect-ratio:1/1;object-fit:contain}
+.product-options{border:1px solid #5d4a6d;border-radius:0 0 16px 16px;padding:16px 18px 0;margin-bottom:24px;background:#24192f}
+.product-options h3{font-size:16px;margin:0 0 4px;color:#ffd8ad}
+.product-options .help{margin:0 0 16px}
+.product-options .field{margin-bottom:18px}
+#claim-form #preview-block:not(:has(+ #product-options:not(.hidden))){border-radius:16px;border-bottom:1px solid #5d4a6d;margin-bottom:24px}
+#prize-choice-field{border:1px solid #7c5d84;background:#2a2037;border-radius:12px;padding:14px;margin-top:18px;margin-bottom:14px}
+@media(max-width:590px){#claim-form .chosen-preview img{max-width:270px}.product-options{padding:14px 14px 0}}
