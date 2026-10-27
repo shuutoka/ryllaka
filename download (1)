@@ -1,0 +1,12 @@
+node_modules/
+.wrangler/
+.dev.vars*
+.env*
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store
+*.log
+# Les codes de concours ne vont JAMAIS dans Git
+CODES-PRIVES-*
+*coded-gagnant*.txt

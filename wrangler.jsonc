@@ -1,0 +1,20 @@
+{
+  "name": "ryllaka-halloween-api",
+  "main": "src.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "triggers": { "crons": ["0 3 * * *"] },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://ryllaka.lotaku.fr",
+    "NOTIFY_TO": "postmaster@lotaku.fr",
+    "MAIL_FROM": "Ryllaka Halloween <halloween@send.lotaku.fr>"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ryllaka-halloween",
+      "database_id": "REMPLACER-PAR-UUID-D1",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
